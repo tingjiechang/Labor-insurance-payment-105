@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>d3.js learning</title>
+    <style>
+        font-size:20px;
+        
+        </style>
+    <script src="https://d3js.org/d3.v3.min.js">
+    </script>
+    <style type="text/css">
+      svg {
+        font: 12px "Microsoft JhengHei";
+        shape-rendering: crispEdges;
+      }
+
+      .axis path,
+      .axis line {
+        fill: none;
+        stroke: #000;
+      }
+
+      path.domain {
+        stroke: none;
+      }
+
+      .y .tick line {
+        stroke: #ddd;
+      }
+    </style>
+
+  </head>
+  <body>
+      
+    <h1>
+      <p align="center">
+          <span style="font-family:Microsoft JhengHei;">105年度勞保給付情形</span></p></h1>
+       <a style="font-family:Microsoft JhengHei;" href =  "排除老年給付.html"> 排除老年給付/年金 </a>
+    <script type="text/javascript">
+
+      // Setup svg using Bostock's margin convention
+
+      var margin = {top: 20, right: 120, bottom: 35, left: 120};
+
+      var width = 1200 - margin.left - margin.right,
+          height = 500 - margin.top - margin.bottom;
+
+      var svg = d3.select("body")
+      .append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+      .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+
+      /* Data in strings like it would be if imported from a csv */
+
+      var data = [
+        { type: "傷病給付", 未滿20歲:"35086286",  "20-29歲": "378466286", "30－39歲": "626936534",  "40-49歲": "785971679","50-59歲":"1174034102" ,"60-64歲":"274320084" , "65歲以上":"46569978"  },
+        { type: "生育給付", 未滿20歲:"16139414",  "20-29歲": "2252377250", "30－39歲": "6025115876",  "40-49歲": "334690285","50-59歲":"1326382" ,"60-64歲":"" ,
+         "65歲以上":"0"   },
+        { type: "失能給付/年金",未滿20歲:"11094847",  "20-29歲": "242342452", "30－39歲": "759562035",  "40-49歲": "1767452359","50-59歲":"2153893900" ,"60-64歲":"668783449" , "65歲以上":"158710299" },
+        { type: "老年給付/年金",　未滿20歲:"0",  "20-29歲": "0", "30－39歲": "2593865",  "40-49歲": "7635572341","50-59歲":"108996711584" ,"60-64歲":"87050339389" ,
+         "65歲以上":"73302131650"  },
+        { type: "死亡/遺囑給付", 未滿20歲:"16774955",  "20-29歲": "335324055", "30－39歲": "1777080232",  "40-49歲": "4139185089","50-59歲":"3831857024" ,"60-64歲":"1130764019" ,"65歲以上":"894770029"},
+        
+      ];
+
+
+
+
+      // Transpose the data into layers
+      var dataset = d3.layout.stack()(["未滿20歲", "20-29歲", "30－39歲", "40-49歲" , "50-59歲" ,"60-64歲","65歲以上" ].map(function(year) {
+        return data.map(function(d) {
+          return {x: d.type, y: +d[year]};
+        });
+      }));
+
+
+      // Set x, y and colors
+      var x = d3.scale.ordinal()
+      .domain(dataset[0].map(function(d) { return d.x; }))
+      .rangeRoundBands([10, width-10], 0.1);
+
+      var y = d3.scale.linear()
+      .domain([0, d3.max(dataset, function(d) {  return d3.max(d, function(d) { return d.y0 + d.y; });  })])
+      .range([height, 0]);
+
+      var colors = ["b33040", "#d25c4d", "#f2b447", "#d9d574","#E1E100","#64A600"
+                   ,"#01B468"];
+
+
+      // Define and draw axes
+      var yAxis = d3.svg.axis()
+      .scale(y)
+      .orient("left")
+      .ticks(10)
+      .tickSize(-width, 0, 0)
+      .tickFormat( function(d) { return d/1000000+"M" } );
+
+      var xAxis = d3.svg.axis()
+      .scale(x)
+      .orient("bottom");
+      
+      svg.append("g")
+        .attr("class", "y axis")
+        .call(yAxis);
+
+      svg.append("g")
+        .attr("class", "x axis")
+        .attr("transform", "translate(0," + height + ")")
+        .call(xAxis);
+
+
+      // Create groups for each series, rects for each segment 
+      var groups = svg.selectAll("g.amount")
+      .data(dataset)
+      .enter().append("g")
+      .attr("class", "amount")
+      .style("fill", function(d, i) { return colors[i]; });
+
+      var fformat = d3.format("6f"); 
+        
+      var rect = groups.selectAll("rect")
+      .data(function(d) { return d; })
+      .enter()
+      .append("rect")
+      .attr("x", function(d) { return x(d.x); })
+      .attr("y", function(d) { return y(d.y0 + d.y); })
+      .attr("height", function(d) { return y(d.y0) - y(d.y0 + d.y); })
+      .attr("width", x.rangeBand())
+      .on("mouseover", function() { tooltip.style("display", null); })
+      .on("mouseout", function() { tooltip.style("display", "none"); })
+      .on("mousemove", function(d) {
+        var xPosition = d3.mouse(this)[0] - 15;
+        var yPosition = d3.mouse(this)[1] - 25;
+        tooltip.attr("transform", "translate(" + xPosition + "," + yPosition + ")");
+        tooltip.select("text").text( fformat((d.y)/1000000)+"M");
+      });
+
+
+      // Draw legend
+      var legend = svg.selectAll(".legend")
+      .data(colors)
+      .enter().append("g")
+      .attr("class", "legend")
+      .attr("transform", function(d, i) { return "translate(30," + i * 19 + ")"; });
+
+      legend.append("rect")
+        .attr("x", width - 18)
+        .attr("width", 18)
+        .attr("height", 18)
+        .style("fill", function(d, i) {return colors.slice().reverse()[i];});
+
+      legend.append("text")
+        .attr("x", width + 5)
+        .attr("y", 9)
+        .attr("dy", ".35em")
+        .style("text-anchor", "start")
+        .text(function(d, i) { 
+        switch (i) {
+          case 6: return "未滿20歲";
+          case 5: return "20-29歲";
+          case 4: return "30－39歲";
+          case 3: return "40－49歲";
+          case 2: return "50－59歲";
+          case 1: return "60－64歲";
+          case 0: return "65歲以上";
+                
+                 }
+      });
+
+
+      // Prep the tooltip bits, initial display is hidden
+      var tooltip = svg.append("g")
+      .attr("class", "tooltip")
+      .style("display", "none");
+
+      tooltip.append("rect")
+        .attr("width", 30)
+        .attr("height", 20)
+        .attr("fill", "white")
+        .style("opacity", 0);
+
+      tooltip.append("text")
+        .attr("x", 15)
+        .attr("dy", "1.2em")
+        .style("text-anchor", "middle")
+        .attr("font-size", "12px")
+        .attr("font-weight", "bold");
+
+    </script>
+    
+     
+  </body>
+</html>
